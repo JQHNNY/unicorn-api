@@ -1,0 +1,19 @@
+version: '3'
+
+services:
+  database:
+    image: mysql:8.0
+    ports:
+      - 3306:3306
+    environment:
+      MYSQL_DATABASE: db_unicorns
+      MYSQL_PASSWORD: test55
+      MYSQL_ROOT_PASSWORD: test55
+      MYSQL_USER: admin
+    volumes:
+      - unicorn_data:/var/lib/mysql
+  mailer:
+    image: schickling/mailcatcher
+    ports: [ "1025", "1080" ]
+volumes:
+  unicorn_data:
