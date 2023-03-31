@@ -4,6 +4,8 @@ namespace App\Entity;
 
 use App\Repository\PostRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Annotation\Groups;
+use Symfony\Component\Serializer\Annotation\MaxDepth;
 
 #[ORM\Entity(repositoryClass: PostRepository::class)]
 class Post
@@ -11,16 +13,21 @@ class Post
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
+    #[Groups(['post'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
+    #[Groups(['post'])]
     private ?string $author = null;
 
     #[ORM\Column(length: 255)]
+    #[Groups(['post'])]
     private ?string $message = null;
 
     #[ORM\ManyToOne(inversedBy: 'posts')]
     #[ORM\JoinColumn(nullable: false)]
+    #[MaxDepth(1)]
+    #[Groups(['post'])]
     private ?Unicorn $unicorn = null;
 
     public function getId(): ?int
