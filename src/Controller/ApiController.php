@@ -3,17 +3,17 @@
 namespace App\Controller;
 
 use App\Entity\Post;
+use App\Entity\Unicorn;
 use App\Repository\PostRepository;
 use App\Repository\UnicornRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use App\Service\MailerService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
-use Symfony\Component\Mailer\MailerInterface;
-use Symfony\Component\Mime\Email;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Serializer\Exception\ExceptionInterface;
 use Symfony\Component\Serializer\SerializerInterface;
@@ -26,7 +26,7 @@ class ApiController extends AbstractController
         public SerializerInterface $serializer,
         public PostRepository $postRepository,
         public UnicornRepository $unicornRepository,
-        public MailerInterface $mailer
+        public MailerService $mailerService
     ) {}
 
     #[Route('/unicorns', name: 'unicorns', methods: 'GET')]
@@ -154,39 +154,42 @@ class ApiController extends AbstractController
             if (!$json) {
                 throw new BadRequestException('Request body is invalid');
             }
-            if (!$json && !isset($json['email'])) {
+            if (!isset($json['email'])) {
                 throw new BadRequestException('Email is missing from the request body');
             }
 
             if (!filter_var($json['email'], FILTER_VALIDATE_EMAIL)) {
                 throw new BadRequestException('Email is not valid');
             }
+
             $emailTo = $json['email'];
+            $html = $this->buildHtml($unicorn, $posts);
 
-            $html = '<h1>Hello, you just purchased a unicorn named: ' . $unicorn->getName() . '!</h1>';
-            if (!$posts) {
-                $html .= '<p>There are no posts about your unicorn.</p>';
-            } else {
-                $html .= '<h2>Here is a list of all posts made about your lovely unicorn</h2><ul>';
-                foreach ($posts as $post) {
-                    $html .= '<li>' . $post->getAuthor() . ' - ' . $post->getMessage() . '</li>';
-                    $this->entityManager->remove($post);
-                }
-                $html .= '</ul>';
-            }
-            $email = (new Email())
-                ->from('unicornfarm@special.be')
-                ->to($emailTo)
-                ->subject('Purchase ' . $unicorn->getName())
-                ->html($html);
-
-            $this->mailer->send($email);
+            $this->mailerService->sendEmail($emailTo, $unicorn, $html);
             $this->entityManager->flush();
+
         } catch (ExceptionInterface $e) {
             throw new BadRequestException(sprintf('Something went wrong: %s', $e->getMessage()));
         }
         return new JsonResponse([
             'message' => sprintf('Unicorn with id: %s has been purchased and an email has been sent to %s', $id, $emailTo)
         ]);
+    }
+
+    public function buildHtml(Unicorn $unicorn, array $posts): string
+    {
+        $html = '<h1>Hello, you just purchased a unicorn named: ' . $unicorn->getName() . '!</h1>';
+
+        if (!$posts) {
+            $html .= '<p>There are no posts about your unicorn.</p>';
+        } else {
+            $html .= '<h2>Here is a list of all posts made about your lovely unicorn</h2><ul>';
+            foreach ($posts as $post) {
+                $html .= '<li>' . $post->getAuthor() . ' - ' . $post->getMessage() . '</li>';
+            }
+            $html .= '</ul>';
+        }
+
+        return $html;
     }
 }
