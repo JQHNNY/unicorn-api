@@ -23,16 +23,22 @@ make install
 make start
 ````
 
-### Build database
+### Run migrations
 ````
-make start_db
+make migrate
 ````
 
 ### Start local webserver and open local webmail
 ````
 make server
+
+# http://localhost:8000/ - Local webserver
+# http://localhost:1080/ - Local webmail
 ````
-Your local webmail might not open on your browser. The URL will be listed in your terminal when running this command.
+Running this command might not open your local webmail via your browser. The URL will be listed in your terminal when running this command.
+[Mailcatcher should be exposed on port 1080](https://symfony.com/doc/current/setup/symfony_server.html#docker-integration), you can always check via Docker Desktop.
+
+
 
 ## Using the API
 

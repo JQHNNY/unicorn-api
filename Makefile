@@ -28,7 +28,11 @@ start: build up ## Build and start the containers, start the local webserver
 down: ## Stop the docker hub
 	@$(DOCKER_COMP) stop
 
-start_db: ## Build database
+migrate: ## Build database
+	@$(SYMFONY) doctrine:migrations:migrate -n
+
+rebuild_db: ## Build database
+	@$(SYMFONY) doctrine:database:drop --force
 	@$(SYMFONY) doctrine:database:create --if-not-exists
 	@$(SYMFONY) doctrine:migrations:migrate -n
 
