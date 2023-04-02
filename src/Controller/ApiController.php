@@ -8,6 +8,7 @@ use App\Repository\PostRepository;
 use App\Repository\UnicornRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use App\Service\MailerService;
+use Nelmio\ApiDocBundle\Annotation\Model;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -17,28 +18,49 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Serializer\Exception\ExceptionInterface;
 use Symfony\Component\Serializer\SerializerInterface;
+use OpenApi\Attributes as OA;
 
 #[Route('/api', name: 'api_')]
 class ApiController extends AbstractController
 {
     public function __construct(
         public EntityManagerInterface $entityManager,
-        public SerializerInterface $serializer,
-        public PostRepository $postRepository,
-        public UnicornRepository $unicornRepository,
-        public MailerService $mailerService
-    ) {}
+        public SerializerInterface    $serializer,
+        public PostRepository         $postRepository,
+        public UnicornRepository      $unicornRepository,
+        public MailerService          $mailerService
+    )
+    {
+    }
 
     #[Route('/unicorns', name: 'unicorns', methods: 'GET')]
+    #[OA\Response(
+        response: 200,
+        description: 'Returns a list of all unicorns',
+        content: new OA\JsonContent(
+            type: 'array',
+            items: new OA\Items(ref: new Model(type: Unicorn::class, groups: ['unicorn']))
+        )
+    )]
+    #[OA\Tag(name: 'Unicorns')]
     public function unicorns(): JsonResponse
     {
         $unicorns = $this->unicornRepository->findAll();
-        $json = $this->serializer->serialize($unicorns, 'json', ['groups' => ['unicorn'],'json_encode_options' => JSON_PRETTY_PRINT]);
+        $json = $this->serializer->serialize($unicorns, 'json', ['groups' => ['unicorn'], 'json_encode_options' => JSON_PRETTY_PRINT]);
 
         return new JsonResponse($json, Response::HTTP_OK, [], true);
     }
 
     #[Route('/posts', name: 'posts', methods: 'GET')]
+    #[OA\Response(
+        response: 200,
+        description: 'Returns a list of all posts',
+        content: new OA\JsonContent(
+            type: 'array',
+            items: new OA\Items(ref: new Model(type: Post::class, groups: ['post']))
+        )
+    )]
+    #[OA\Tag(name: 'Posts')]
     public function posts(): JsonResponse
     {
         $posts = $this->postRepository->findAll();
@@ -47,7 +69,39 @@ class ApiController extends AbstractController
         return new JsonResponse($json, Response::HTTP_OK, [], true);
     }
 
-    #[Route('/create/post/{id<\d+>}', name: 'create_post', methods: 'POST')]
+    #[Route('/posts/create/{id<\d+>}', name: 'create_post', methods: 'POST')]
+    #[OA\RequestBody(
+        description: 'Message and author for creating the post',
+        required: 'true',
+        content: [new OA\JsonContent(
+            required: ['author', 'message'],
+            type: 'object',
+            example: '{"author": "Jeff", "message": "This is a lovely unicorn"}'
+        )]
+    )]
+    #[OA\Response(
+        response: 200,
+        description: 'Creates a post attached to unicorn',
+        content: new OA\JsonContent(
+            type: 'object',
+            example: '{"message": "Post has been created!"}'
+        )
+    )]
+    #[OA\Response(
+        response: 404,
+        description: 'Unicorn not found',
+    )]
+    #[OA\Response(
+        response: 400,
+        description: 'Author or message is missing from the request body',
+    )]
+    #[OA\Parameter(
+        name: 'id',
+        description: 'The unicorn id',
+        in: 'path',
+        schema: new OA\Schema(type: 'integer')
+    )]
+    #[OA\Tag(name: 'Posts')]
     public function createPost(Request $request, int $id): JsonResponse
     {
         try {
@@ -77,10 +131,42 @@ class ApiController extends AbstractController
 
         return new JsonResponse([
             'message' => 'Post has been created!'
-        ]);
+        ], Response::HTTP_OK);
     }
 
-    #[Route('/edit/post/{id<\d+>}', name: 'edit_post', methods: 'POST')]
+    #[Route('/posts/edit/{id<\d+>}', name: 'edit_post', methods: 'PUT')]
+    #[OA\RequestBody(
+        description: 'New message object for editing the post',
+        required: 'true',
+        content: [new OA\JsonContent(
+            required: ['message'],
+            type: 'object',
+            example: '{"message": "I changed my mind, this unicorn is not as fabulous"}'
+        )]
+    )]
+    #[OA\Response(
+        response: 404,
+        description: 'Post not found',
+    )]
+    #[OA\Response(
+        response: 400,
+        description: 'New message cannot be the same as old message, Message is missing from request body',
+    )]
+    #[OA\Response(
+        response: 200,
+        description: 'Edit the message from a post',
+        content: [new OA\JsonContent(
+            type: 'object',
+            example: '{"message": "Post with id: 1 has been edited! Old message: This is a lovely unicorn, New message: I changed my mind, this unicorn is not as fabulous"}'
+        )]
+    )]
+    #[OA\Parameter(
+        name: 'id',
+        description: 'The post id',
+        in: 'path',
+        schema: new OA\Schema(type: 'integer')
+    )]
+    #[OA\Tag(name: 'Posts')]
     public function editPost(int $id, Request $request): JsonResponse
     {
         $json = $request->getContent();
@@ -95,7 +181,12 @@ class ApiController extends AbstractController
             if (!$json) {
                 throw new BadRequestException('Request body is empty');
             }
-            $json = json_decode($json,true);
+            $json = json_decode($json, true);
+
+            if (!isset($json['message'])) {
+                throw new BadRequestException('Message is missing from the request body');
+            }
+
             if ($json['message'] && $json['message'] === $oldMessage) {
                 throw new BadRequestException('New message cannot be the same as old message');
             }
@@ -105,8 +196,7 @@ class ApiController extends AbstractController
             $this->entityManager->persist($post);
             $this->entityManager->flush();
 
-        }
-        catch (ExceptionInterface $e) {
+        } catch (ExceptionInterface $e) {
             throw new BadRequestException(sprintf('Something went wrong: %s', $e->getMessage()));
         }
 
@@ -117,10 +207,29 @@ class ApiController extends AbstractController
                 $oldMessage,
                 $post->getMessage()
             )
-        ]);
+        ], Response::HTTP_OK);
     }
 
-    #[Route('/remove/post/{id}', name: 'remove_post', methods: 'DELETE')]
+    #[Route('/posts/remove/{id}', name: 'remove_post', methods: 'DELETE')]
+    #[OA\Parameter(
+        name: 'id',
+        description: 'The post id',
+        in: 'path',
+        schema: new OA\Schema(type: 'integer')
+    )]
+    #[OA\Response(
+        response: 404,
+        description: 'Post not found',
+    )]
+    #[OA\Response(
+        response: 200,
+        description: 'Removes the post',
+        content: [new OA\JsonContent(
+            type: 'object',
+            example: '{"message": "Post with id: 1 has been deleted!"}'
+        )]
+    )]
+    #[OA\Tag(name: 'Posts')]
     public function removePost(int $id): JsonResponse
     {
         try {
@@ -138,13 +247,46 @@ class ApiController extends AbstractController
 
         return new JsonResponse([
             'message' => sprintf('Post with id: %s has been deleted!', $id)
-        ]);
+        ], Response::HTTP_OK);
     }
 
     #[Route('/unicorns/purchase/{id}', name: 'purchase_unicorn', methods: 'POST')]
+    #[OA\RequestBody(
+        description: 'Send email containing unicorn and all posts made about your unicorn',
+        required: 'true',
+        content: [new OA\JsonContent(
+            required: ['email'],
+            type: 'object',
+            example: '{"email": "jeff.green@nodomain.com"}'
+        )]
+    )]
+    #[OA\Parameter(
+        name: 'id',
+        description: 'The unicorn id',
+        in: 'path',
+        schema: new OA\Schema(type: 'integer')
+    )]
+
+    #[OA\Response(
+        response: 400,
+        description: 'Email is missing from the request body, invalid email, invalid request body',
+    )]
+    #[OA\Response(
+        response: 404,
+        description: 'Unicorn not found',
+    )]
+    #[OA\Response(
+        response: 200,
+        description: 'Purchases the unicorn and sends an email with all posts linked to the unicorn',
+        content: [new OA\JsonContent(
+            type: 'object',
+            example: '{"message":"Unicorn with id: 4 has been purchased and an email has been sent to jeff.green@nodomain.com"}'
+        )]
+    )]
+    #[OA\Tag(name: 'Unicorns')]
     public function purchaseUnicorn(int $id, Request $request): JsonResponse
     {
-        $json = json_decode($request->getContent(), true);
+        $json = $request->getContent();
         try {
             $unicorn = $this->unicornRepository->findOneBy(['id' => $id]);
             if (!$unicorn) {
@@ -154,6 +296,7 @@ class ApiController extends AbstractController
             if (!$json) {
                 throw new BadRequestException('Request body is invalid');
             }
+            $json = json_decode($json, true);
             if (!isset($json['email'])) {
                 throw new BadRequestException('Email is missing from the request body');
             }
@@ -173,7 +316,7 @@ class ApiController extends AbstractController
         }
         return new JsonResponse([
             'message' => sprintf('Unicorn with id: %s has been purchased and an email has been sent to %s', $id, $emailTo)
-        ]);
+        ], Response::HTTP_OK);
     }
 
     public function buildHtml(Unicorn $unicorn, array $posts): string
