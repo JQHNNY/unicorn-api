@@ -23,7 +23,7 @@ build: ## Builds the Docker images
 up: ## Start the docker hub
 	@$(DOCKER_COMP) up -d
 
-start: build up server ## Build and start the containers, start the local webserver
+start: build up ## Build and start the containers, start the local webserver
 
 down: ## Stop the docker hub
 	@$(DOCKER_COMP) stop
