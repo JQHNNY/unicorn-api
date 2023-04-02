@@ -9,8 +9,8 @@ A public API for our unicorn farm.
 Clone the project from the [master repository](https://github.com/JQHNNY/unicorn-api)
 ### Using Docker
 ````
-git clone git@github.com:JQHNNY/unicorn-api.git
-cd unicorn
+git clone https://github.com/JQHNNY/unicorn-api.git
+cd unicorn-api
 ````
 ### Install dependencies
 ````
