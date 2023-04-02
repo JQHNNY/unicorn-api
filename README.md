@@ -26,6 +26,10 @@ make start
 ### Run migrations
 ````
 make migrate
+
+# It might take a while before you can run this command as the database container takes
+a bit of time to start up. You can check the logs of your database via Docker Desktop
+"X Plugin ready for connections" indicates that you can run this command
 ````
 
 ### Start local webserver and open local webmail
@@ -33,6 +37,7 @@ make migrate
 make server
 
 # http://localhost:8000/ - Local webserver
+# http://localhost:8000/api/doc - API documentation
 # http://localhost:1080/ - Local webmail
 ````
 Running this command might not open your local webmail via your browser. The URL will be listed in your terminal when running this command.
