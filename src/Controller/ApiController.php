@@ -308,6 +308,10 @@ class ApiController extends AbstractController
             $emailTo = $json['email'];
             $html = $this->buildHtml($unicorn, $posts);
 
+            foreach ($posts as $post) {
+                $this->entityManager->remove($post);
+            }
+
             $this->mailerService->sendEmail($emailTo, $unicorn, $html);
             $this->entityManager->flush();
 
